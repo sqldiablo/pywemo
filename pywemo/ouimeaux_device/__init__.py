@@ -102,11 +102,6 @@ class Device(object):
         # Put here to avoid circular dependency
         from ..discovery import discover_devices
 
-        # Avoid retrying from multiple threads
-        if self.retrying:
-            return
-
-        self.retrying = True
         LOG.info("Trying to reconnect with %s", self.name)
         # We will try to find it 5 times, each time we wait a bigger interval
         try_no = 0
@@ -153,8 +148,31 @@ class Device(object):
         return True
 
     def reconnect_with_device(self):
-        if not self._reconnect_with_device_by_probing() and (self.mac or self.serialnumber):
-            self._reconnect_with_device_by_discovery()
+        ret_val = None
+
+        if self.rediscovery_enabled and not self.rediscovery_pending:
+            try:
+                self.rediscovery_pending = True
+
+                LOG.debug("Attempting to rediscover wemo at %s by probing for a new port...",
+                          self.host)
+                device = self._reconnect_with_device_by_probing()
+
+                if not device and (self.mac or self.serialnumber):
+                    LOG.debug("Attempting to rediscover wemo at %s by ssdp discovery...",
+                              self.host)
+                    device = self._reconnect_with_device_by_discovery()
+
+                if not device:
+                    self.update_config(device)
+#                    ret_val = device.url
+            except Exception:
+                LOG.error('Error while rediscovering wemo at %s: %s',
+                          self.url, traceback.format_exc())
+            finally:
+                self.rediscovery_pending = False
+
+        return ret_val
 
     def parse_basic_state(self, params):
         # BinaryState
