@@ -140,7 +140,8 @@ class SubscriptionRegistry:
             with self._event_thread_cond:
                 self._events[device.serialnumber] = (
                     self._sched.enter(SUBSCRIPTION_RETRY,
-                                      0, self._resubscribe, [device, sid, retry]))
+                                      0, self._resubscribe,
+                                      [device, sid, retry]))
 
     def _url_resubscribe(self, device, headers, sid, url):
         request_headers = headers.copy()
